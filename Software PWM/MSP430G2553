@@ -14,7 +14,7 @@ void TimerA0Setup();
 void TimerA1Setup();
 
 int main(void){
-    WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
+    WDTCTL = WDTPW | WDTHOLD;   // Stop watchdog timer
     BCSCTL3 = LFXT1S_2; // Enable internal oscillator for clk
 
     LEDSetup(); // Initialize our LEDS
@@ -22,7 +22,7 @@ int main(void){
     TimerA0Setup(); // Initialize Timer0
     TimerA1Setup(); // Initialize Timer1
 
-    _BIS_SR(LPM0_bits + GIE);        // Enter LPM0 with global interrupt enable
+    _BIS_SR(LPM0_bits + GIE);   // Enter LPM0 with global interrupt enable
 }
 
 // Initialize our LEDS
