@@ -1,0 +1,78 @@
+/*
+ * Lab3_HardwarePWM_MSP430F5529.c
+ *
+ *  Created on: Oct. 3, 2018
+ *  Last Edited: Oct. 6, 2018
+ *      Author: John Garvey
+ */
+
+#define LED BIT0
+#define Button BIT1
+
+#include <msp430.h> 
+
+void LEDSetup();
+void ButtonSetup();
+void TimerA0Setup();
+void TimerA1Setup();
+void DebounceButton();
+
+int main(void)
+{
+    WDTCTL = WDTPW | WDTHOLD;   // Stop watchdog timer
+
+    LEDSetup(); // Initialize our LEDS
+    ButtonSetup();  // Initialize our button
+    TimerA0Setup(); // Initialize Timer0
+    TimerA1Setup(); // Initialize Timer1
+
+    __bis_SR_register(LPM0_bits + GIE); // Enter LPM0 w/ interrupt
+}
+
+// Initialize our LEDS
+void LEDSetup(void){
+    P1DIR |= LED;  // LED pin is I/O
+    P1SEL |= LED;  // LED pin is an output
+}
+
+// Initialize our button
+void ButtonSetup(void){
+    P1IE |= Button;   // Enable interrupt on button
+    P1IES |= Button;  // Enable high to low on interrupt
+    P1IFG &= ~Button; // Clear flags
+}
+
+// Initialize Timer0
+void TimerA0Setup(void){
+    TA0CCR0 = 1000 - 1;    // Set CCR0 to 1000 - 1
+    TA0CCTL1 |= OUTMOD_7;  // CCR0 toggle/set
+    TA0CTL = TASSEL_2 + MC_1;    // Set SMCLK and Up mode
+}
+
+// Initialize Timer1
+void TimerA1Setup(void){
+    TA0CCR1 = 500;   // Initially, CCR1 is 50% of CCR0 (50% duty cycle)
+}
+
+// De-bounce Button
+void DebounceButton(void){
+    P1IE &= ~Button;  // Disable interrupt on button
+    _delay_cycles(10000);   // Delay (Super simple de-bounce)
+    P1IE |= Button;   // Re-enable interrupt on button
+}
+
+// Timer interrupt
+#pragma vector = TIMER0_A0_VECTOR
+__interrupt void Timer_A()
+{
+    P1OUT ^= LED;  // Toggle led output
+}
+
+// Button press interrupt
+#pragma vector = PORT1_VECTOR
+__interrupt void Port_1(void)
+{
+    DebounceButton();   // Debounce the Button
+    TA0CCR1 = (TA0CCR1 + 100) % 1000; // Add 250 to CCR1 and % by 1000 for 4 modes
+    P1IFG &= ~Button; // Clear flag
+}
