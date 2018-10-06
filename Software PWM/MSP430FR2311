@@ -13,8 +13,8 @@
 
 void LEDSetup();
 void ButtonSetup();
-void TimerA0Setup();
-void TimerA1Setup();
+void TimerB0Setup();
+void TimerB1Setup();
 void DebounceButton();
 
 int main(void){
@@ -22,8 +22,8 @@ int main(void){
 
     LEDSetup(); // Initialize our LEDS
     ButtonSetup();  // Initialize our button
-    TimerA0Setup(); // Initialize Timer0
-    TimerA1Setup(); // Initialize Timer1
+    TimerB0Setup(); // Initialize Timer0
+    TimerB1Setup(); // Initialize Timer1
 
     _BIS_SR(LPM0_bits + GIE);        // Enter LPM0 with global interrupt enable
 }
@@ -44,14 +44,14 @@ void ButtonSetup(void){
 }
 
 // Initialize Timer0
-void TimerA0Setup(void){
+void TimerB0Setup(void){
     TB0CCR0 = 1000 - 1;    // Set CCR0
     TB0CCTL0 |= CCIE;  // CCR0 toggle/set
     TB0CTL = TBSSEL_2 + MC_1;    // Set SMCLK and Up mode
 }
 
 // Initialize Timer1
-void TimerA1Setup(void){
+void TimerB1Setup(void){
     TB0CCTL1 |= CCIE;  // CCR1 toggle/set
     TB0CCR1= 500;  // Initialize at 50% duty cycle (50% of CCR0)
 }
