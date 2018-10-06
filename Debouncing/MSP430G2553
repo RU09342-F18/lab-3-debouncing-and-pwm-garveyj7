@@ -1,0 +1,79 @@
+/*
+ * Lab3_Debouncing_MSP430G2553.c
+ *
+ *  Created on: Oct. 5, 2018
+ *  Last Edited: Oct. 5, 2018
+ *      Author: John Garvey
+ */
+
+#define LED BIT0
+#define Button BIT3
+
+int LED_On = 0;
+
+#include <msp430.h>
+
+void LEDSetup();
+void ButtonSetup();
+void TimerA0Setup();
+
+int main(void)
+{
+    WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
+    BCSCTL3 = LFXT1S_2; // Enable internal oscillator for clk
+
+    LEDSetup(); // Initialize our LEDS
+    ButtonSetup();  // Initialize our button
+    TimerA0Setup(); // Initialize Timer
+    __enable_interrupt();
+    __bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ interrupt
+    while(1){};
+}
+
+// Initialize our LEDS
+void LEDSetup(void){
+    P1DIR |= LED;  // LED pin is I/O
+    P1OUT &= ~LED;  // LED pin is an output
+}
+
+// Initialize our button
+void ButtonSetup(void){
+    P1DIR &= ~(Button); // Button is I/O
+    P1OUT |= Button;    // Button is an input
+    P1REN |= Button;    // Enable pull up resistor on button
+    P1IE |= Button;   // Enable interrupt on button
+    P1IES |= ~Button;  // Enable high to low on interrupt
+    P1IFG &= ~Button; // Clear flags
+}
+
+// Initialize Timer0
+void TimerA0Setup(void){
+    CCR0 = 20000;    // Set CCR0 (Interrupt delay when button is pressed)
+    CCTL0 = CCIE;  // CCR0 toggle/set
+    TACTL = TASSEL_2 + MC_0;    // Set CMCLK and STOP mode
+}
+
+// Timer interrupt
+#pragma vector = TIMER0_A0_VECTOR
+__interrupt void Timer_A()
+{
+    CCTL0 &= ~CCIE; // Turn off timer0 interrupt
+    TACTL = MC_0;   // Set STOP
+    P1IE |= Button; // Enable button interrupt
+    if (LED_On  == 1){  // Toggle LED state on
+        P1OUT ^= LED;
+    }
+    LED_On = 0; // Toggle LED state off
+    P1IFG &= ~Button;   // Clear flag
+}
+
+// Button press interrupt
+#pragma vector = PORT1_VECTOR
+__interrupt void Port_1(void)
+{
+    TACTL = TASSEL_2 + MC_1;    // Set SMCLK and up mode
+    P1IE &= ~Button;  // Turn off button interrupt
+    CCTL0 |= CCIE;  // Enable timer0 interrupt
+    LED_On = 1; // LED state = on
+    P1IFG &= ~Button; // Clear flag
+}  
