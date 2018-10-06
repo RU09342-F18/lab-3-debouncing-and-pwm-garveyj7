@@ -1,0 +1,91 @@
+/*
+ * Lab3_SoftwarePWM_MSP430FR2311.c
+ *
+ *  Created on: Oct. 2, 2018
+ *  Last Edited: Oct. 5, 2018
+ *      Author: John Garvey
+ */
+
+#define LED BIT0
+#define Button BIT1
+
+#include <msp430FR2311.h>
+
+void LEDSetup();
+void ButtonSetup();
+void TimerA0Setup();
+void TimerA1Setup();
+void DebounceButton();
+
+int main(void){
+    WDTCTL = WDTPW | WDTHOLD;   // Stop watchdog timer
+
+    LEDSetup(); // Initialize our LEDS
+    ButtonSetup();  // Initialize our button
+    TimerA0Setup(); // Initialize Timer0
+    TimerA1Setup(); // Initialize Timer1
+
+    _BIS_SR(LPM0_bits + GIE);        // Enter LPM0 with global interrupt enable
+}
+
+// Initialize our LEDS
+void LEDSetup(void){
+    P1DIR |= LED;  // LED pin is I/O
+}
+
+// Initialize our button
+void ButtonSetup(void){
+    P1DIR &= ~Button; // Set button as an input
+    P1REN |= Button;  // Enable pull up/down resistor
+    P1OUT |= Button;  // Select pull up resistor
+    P1IE |= Button;   // Enable interrupt on button
+    P1IES |= Button;  // Enable high to low on interrupt
+    P1IFG &= ~Button; // Clear flags
+}
+
+// Initialize Timer0
+void TimerA0Setup(void){
+    TB0CCR0 = 1000 - 1;    // Set CCR0
+    TB0CCTL0 |= CCIE;  // CCR0 toggle/set
+    TB0CTL = TBSSEL_2 + MC_1;    // Set SMCLK and Up mode
+}
+
+// Initialize Timer1
+void TimerA1Setup(void){
+    TB0CCTL1 |= CCIE;  // CCR1 toggle/set
+    TB0CCR1= 500;  // Initialize at 50% duty cycle (50% of CCR0)
+}
+
+// De-bounce Button
+void DebounceButton(void){
+    P1IE &= ~Button;  // Disable interrupt on button
+    _delay_cycles(10000);   // Delay (Super simple de-bounce)
+    P1IE |= Button;   // Re-enable interrupt on button
+}
+
+// Timer0 Interrupt
+#pragma vector = TIMER0_B0_VECTOR
+__interrupt void Timer0_B0_ISR (void){
+    if(TB0CCR1 != 0){  // If CCR1 has some value, toggle LED
+        P1OUT |= LED;
+    }
+    TB0CCTL0 &= ~LED; // Clear flag
+}
+
+// Timer1 Interrupt
+#pragma vector = TIMER0_B1_VECTOR
+__interrupt void Timer0_B1_ISR (void){
+    P1OUT &= ~LED; // Toggle LED
+    TB0CCTL1 &= ~LED; // Clear flag
+}
+
+// Button press interrupt
+#pragma vector=PORT1_VECTOR
+__interrupt void Port_1(void){
+    DebounceButton();   // Debounce the button
+    P1IES ^= Button;  // Toggle high to low behavior on interrupt
+    if (~P1IES & Button){     // If button pressed, increase CCR1 by 100 (10% of CCR0), when it reaches 1000, reset back to 0
+        TB0CCR1 = (TB0CCR1 + 100) % 1000;
+    }
+    P1IFG &= ~Button; // Clear flag
+}
