@@ -1,45 +1,25 @@
 /*
  * Lab3_HardwarePWM_MSP430G2553.c
  *
- *  Created on: Oct. 3, 2018
- *  Last Edited: Oct 3, 2018
+ *  Created on: Oct. 1, 2018
+ *  Last Edited: Oct. 5, 2018
  *      Author: John Garvey
  */
 
+#define LED BIT6
+#define Button BIT3
+
 #include <msp430.h> 
 
-// Initialize our LEDS
-int LEDSetup(){
-    P1DIR |= BIT6;  // P1.6 is I/O
-    P1SEL |= BIT6;  // P1.6 is an output
-    return 0;
-}
-
-// Initialize our button
-int ButtonSetup(){
-    P1IE |= BIT3;   // Enable interrupt on button
-    P1IES |= BIT3;  // Enable high to low on interrupt
-    P1IFG &= ~BIT3; // Clear flags
-    return 0;
-}
-
-// Initialize Timer0
-int TimerA0Setup(){
-    CCR0 = 1000 - 1;    // Set CCR0 to 1000 - 1
-    CCTL1 |= OUTMOD_7;  // CCR0 toggle/set
-    TACTL = TASSEL_2 + MC_1;    // Set SMCLK and Up mode
-    return 0;
-}
-
-// Initialize Timer1
-int TimerA1Setup(){
-    CCR1 = 0;   // Initially, CCR1 is 0
-    return 0;
-}
+void LEDSetup();
+void ButtonSetup();
+void TimerA0Setup();
+void TimerA1Setup();
+void DebounceButton();
 
 int main(void)
 {
-    WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
+    WDTCTL = WDTPW | WDTHOLD;   // Stop watchdog timer
     BCSCTL3 = LFXT1S_2; // Enable internal oscillator for clk
 
     LEDSetup(); // Initialize our LEDS
@@ -50,15 +30,50 @@ int main(void)
     __bis_SR_register(LPM0_bits + GIE); // Enter LPM0 w/ interrupt
 }
 
-#pragma vector = TIMER0_A0_VECTOR   // Timer interrupt
-__interrupt void Timer_A()
-{
-    P1OUT ^= BIT6;  // Toggle led output
+// Initialize our LEDS
+void LEDSetup(void){
+    P1DIR |= LED;  // LED pin is I/O
+    P1SEL |= LED;  // LED pin is an output
 }
 
-#pragma vector = PORT1_VECTOR // Button press interrupt
+// Initialize our button
+void ButtonSetup(void){
+    P1IE |= Button;   // Enable interrupt on button
+    P1IES |= Button;  // Enable high to low on interrupt
+    P1IFG &= ~Button; // Clear flags
+}
+
+// Initialize Timer0
+void TimerA0Setup(void){
+    CCR0 = 1000 - 1;    // Set CCR0 to 1000 - 1
+    CCTL1 |= OUTMOD_7;  // CCR0 toggle/set
+    TACTL = TASSEL_2 + MC_1;    // Set SMCLK and Up mode
+}
+
+// Initialize Timer1
+void TimerA1Setup(void){
+    CCR1 = 500;   // Initially, CCR1 is 50% of CCR0 (50% duty cycle)
+}
+
+// De-bounce Button
+void DebounceButton(void){
+    P1IE &= ~Button;  // Disable interrupt on button
+    _delay_cycles(10000);   // Delay (Super simple de-bounce)
+    P1IE |= Button;   // Re-enable interrupt on button
+}
+
+// Timer interrupt
+#pragma vector = TIMER0_A0_VECTOR
+__interrupt void Timer_A()
+{
+    P1OUT ^= LED;  // Toggle led output
+}
+
+// Button press interrupt
+#pragma vector = PORT1_VECTOR
 __interrupt void Port_1(void)
 {
-    CCR1 = (CCR1 + 250) % 1000; // Add 250 to CCR1 and % by 1000 for 4 modes
-    P1IFG &= ~BIT3; // Clear flag
+    DebounceButton();   // Debounce the Button
+    CCR1 = (CCR1 + 100) % 1000; // Add 250 to CCR1 and % by 1000 for 4 modes
+    P1IFG &= ~Button; // Clear flag
 }
